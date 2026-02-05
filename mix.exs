@@ -5,9 +5,16 @@ defmodule Mutineer.MixProject do
     [
       app: :mutineer,
       version: "0.1.0",
-      elixir: "~> 1.18",
+      elixir: "~> 1.14",
+      description: "A chaos engineering library for Elixir that makes functions return errors based on configurable failure rates.",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      package: [
+        name: :mutineer,
+        licenses: ["GPL-3.0"],
+        links: %{"GitHub" => "https://github.com/rum-and-code/mutineer"},
+        maintainers: ["rum-and-code", "hyftar"]
+      ]
     ]
   end
 
