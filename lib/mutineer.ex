@@ -174,7 +174,7 @@ defmodule Mutineer do
 
   defmacro __using__(_opts) do
     quote do
-      import Mutineer, only: [defchaos: 2, defchaosp: 2]
+      import Mutineer, only: [defchaos: 2, defchaos: 3, defchaosp: 2, defchaosp: 3]
       Module.register_attribute(__MODULE__, :chaos, accumulate: false)
       @on_definition Mutineer
       @before_compile Mutineer
@@ -202,9 +202,13 @@ defmodule Mutineer do
         # function body
       end
   """
-  defmacro defchaos(call, opts) do
-    {body, chaos_opts} = Keyword.pop(opts, :do)
+  defmacro defchaos(call, expr_or_opts) do
+    {body, chaos_opts} = resolve_expr_or_opts(expr_or_opts)
     define_chaos_function(:def, call, body, chaos_opts)
+  end
+
+  defmacro defchaos(call, opts, expr) do
+    define_chaos_function(:def, call, expr, opts)
   end
 
   @doc """
@@ -212,9 +216,28 @@ defmodule Mutineer do
 
   Same options as `defchaos/2`.
   """
-  defmacro defchaosp(call, opts) do
-    {body, chaos_opts} = Keyword.pop(opts, :do)
+  defmacro defchaosp(call, expr_or_opts) do
+    {body, chaos_opts} = resolve_expr_or_opts(expr_or_opts)
     define_chaos_function(:defp, call, body, chaos_opts)
+  end
+
+  defmacro defchaosp(call, opts, expr) do
+    define_chaos_function(:defp, call, expr, opts)
+  end
+
+  defp resolve_expr_or_opts(expr_or_opts) do
+    cond do
+      expr_or_opts == nil ->
+        {[], nil}
+
+      # expr_or_opts is expr
+      Keyword.has_key?(expr_or_opts, :do) ->
+        Keyword.pop(expr_or_opts, :do)
+
+      # expr_or_opts is opts
+      true ->
+        {expr_or_opts, nil}
+    end
   end
 
   defp define_chaos_function(type, call, body, chaos_opts) do

@@ -105,6 +105,14 @@ defmodule MutineerTest do
     def query do
       {:ok, "success"}
     end
+
+    defchaos macro_test(arity) when arity == 3, failure_rate: 1.0 do
+      {:ok, "defchaos/3"}
+    end
+
+    defchaos macro_test(arity) when arity == 2 do
+      {:ok, "defchaos/2"}
+    end
   end
 
   describe "integration test with enabled chaos" do
@@ -134,6 +142,28 @@ defmodule MutineerTest do
              "Expected 800-1200 failures, got #{failures} (successes: #{successes})"
 
       assert successes == iterations - failures
+    end
+
+    test "macro defchaos/3 works when provided with opts" do
+      iterations = 1_000
+
+      results =
+        Enum.map(1..iterations, fn _ ->
+          TestModule.macro_test(3)
+        end)
+
+      assert Enum.all?(results, &(&1 == {:error, :mutineer_chaos}))
+    end
+
+    test "macro defchaos/2 works without opts" do
+      iterations = 1_000
+
+      results =
+        Enum.map(1..iterations, fn _ ->
+          TestModule.macro_test(2)
+        end)
+
+      assert Enum.any?(results, &(&1 == {:error, :mutineer_chaos}))
     end
 
     test "function never fails when failure_rate is 0" do
