@@ -32,7 +32,7 @@ Configure Mutineer in your `config/config.exs` (or environment-specific config):
 config :mutineer, Mutineer,
   enabled: true,
   default_failure_rate: 0.1,
-  default_failure_type: :error
+  default_failure_types: :error
 ```
 
 ## Usage
@@ -76,29 +76,31 @@ defmodule MyApp.ExternalService do
 end
 ```
 
+## Global configuration options
+
+- `enabled` - Enables or disables chaos globally (default: `false`)
+- `default_failure_types` - Sets the default failure types for all functions, can be a list of failure types or a single failure type (default: `:error`)
+- `default_failure_rate` - Sets the default failure rate for all functions (default: `0.1`)
+
 ## Failure Types
 
-| Type       | Behavior                                                                                                    |
-| ---------- | ----------------------------------------------------------------------------------------------------------- |
-| `:error`   | Returns `{:error, :mutineer_chaos}`                                                                         |
-| `:raise`   | Raises `Mutineer.ChaosError` exception                                                                      |
-| `:delay`   | Introduces a random 1-5 second delay (or custom `delay` in ms) before execution the function                |
-| `:timeout` | Introduces a random 1-5 second delay (or custom `delay` in ms) before returning `{:error, :mutineer_chaos}` |
-| `:nil`     | Returns `nil`                                                                                               |
-| `:exit`    | Calls `exit(:mutineer_chaos)` to crash the process                                                          |
-| `:custom`  | Returns a custom error via `custom_error` option                                                            |
+- `:error` - Returns `{:error, :mutineer_chaos}` (default) or a random error from the `errors` option
+- `:raise` - Raises either a `Mutineer.ChaosError` exception (default) or a custom error specified in the `raised_errors` option
+- `:delay` - Introduces a random delay (1-5 seconds) before executing function
+- `:timeout` - Same as `:raise`, but with a random delay before raising the exception
+- `:nil` - Returns `nil`
+- `:exit` - Calls `exit(:mutineer_chaos)`; the atom can be specified in the `exit_errors` option
 
-## Options
+## Failure Options
 
 Options can be passed to `@chaos`, `defchaos`, or `defchaosp`:
 
-| Option         | Description                                                   |
-| -------------- | ------------------------------------------------------------- |
-| `failure_rate` | Probability of failure (0.0 - 1.0)                            |
-| `failure_type` | Type of failure to trigger                                    |
-| `message`      | Custom message for `:raise` type                              |
-| `delay`        | Custom delay in milliseconds for `:timeout` and `:delay` type |
-| `custom_error` | Custom error value for `:custom` type                         |
+- `failure_rate` is the probability of failure for a given function (`0.0` - `1.0`), where `1.0` or above will always fail
+- `failure_types` (or `failure_type`) is either a list of failure types to trigger (e.g. `[:error, :delay]`) or a single failure type (e.g. `:error`)
+- `errors` (or `error`) is either a list of objects to be randomly selected from or a single object to return when the `:error` type is triggered
+- `raised_errors` (or `raised_error`) is a list of errors to be randomly selected from or a single error to be raised when the `:raise` type is triggered
+- `exit_errors` (or `exit_error`) is a list of errors to be randomly selected from or a single error to be raised when the `:exit` type is triggered
+- `delay` is the upperbound of the delay in milliseconds or a range of milliseconds for `:timeout` and `:delay` types
 
 ## Example
 

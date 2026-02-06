@@ -15,7 +15,7 @@ defmodule Mutineer do
         Mutineer,
         enabled: true,
         default_failure_rate: 0.1,  # 10% failure rate
-        default_failure_type: :error
+        default_failure_types: :error
 
   ## Usage
 
@@ -53,15 +53,29 @@ defmodule Mutineer do
         end
       end
 
-  ## Failure Types
+  ## Global configuration options
+  - `enabled` - Enables or disables chaos globally (default: `false`)
+  - `default_failure_types` - Sets the default failure types for all functions, can be a list of failure types or a single failure type (default: `:error`)
+  - `default_failure_rate` - Sets the default failure rate for all functions (default: `0.1`)
 
+  ## Failure types
   - `:error` - Returns `{:error, :mutineer_chaos}` (default)
-  - `:custom` - Returns a custom error object specified in the `custom_error` option (defaults to `{:error, :mutineer_chaos}`)
-  - `:raise` - Raises a `Mutineer.ChaosError` exception
+  - `:raise` - Raises either a `Mutineer.ChaosError` exception (default) or a custom error specified in the `raised_errors` option
   - `:delay` - Introduces a random delay (1-5 seconds) before executing function
-  - `:timeout` - Introduces a random delay (1-5 seconds) before failing
+  - `:timeout` - Same as `:raise`, but with a random delay before raising the exception
   - `:nil` - Returns `nil`
-  - `:exit` - Calls `exit(:mutineer_chaos)`
+  - `:exit` - Calls `exit(:mutineer_chaos)`; the atom can be specified in the `exit_errors` option
+
+  ## Failure options
+
+  Options can be passed to `@chaos`, `defchaos`, or `defchaosp`:
+
+  - `failure_rate` is the probability of failure for a given function (`0.0` - `1.0`), where `1.0` or above will always fail
+  - `failure_types` (or `failure_type`) is either a list of failure types to trigger (e.g. `[:error, :delay]`) or a single failure type (e.g. `:error`)
+  - `errors` (or `error`) is either a list of objects to be randomly selected from or a single object to return when the `:error` type is triggered
+  - `raised_errors` (or `raised_error`) is a list of errors to be randomly selected from or a single error to be raised when the `:raise` type is triggered
+  - `exit_errors` (or `exit_error`) is a list of errors to be randomly selected from or a single error to be raised when the `:exit` type is triggered
+  - `delay` is the upperbound of the delay in milliseconds or a range of milliseconds for `:timeout` and `:delay` types
 
   ## Important Notes
 
@@ -70,6 +84,8 @@ defmodule Mutineer do
   - Recommended to only enable in development/staging environments
   - Never enable in production unless you know what you're doing
   """
+
+  alias Mutineer.Failures
 
   defmodule ChaosError do
     @moduledoc """
@@ -100,8 +116,8 @@ defmodule Mutineer do
   @doc """
   Returns the default failure type.
   """
-  def default_failure_type do
-    config()[:default_failure_type] || :error
+  def default_failure_types do
+    config()[:default_failure_types] || :error
   end
 
   @doc """
@@ -114,38 +130,6 @@ defmodule Mutineer do
   def should_fail?(rate) when is_integer(rate) and rate in [0, 1] do
     should_fail?(rate * 1.0)
   end
-
-  @doc """
-  Triggers a failure of the specified type.
-  """
-  def trigger_failure(:error, _func, _opts), do: {:error, :mutineer_chaos}
-
-  def trigger_failure(:custom, _func, opts) do
-    opts[:custom_error] || {:error, :mutineer_chaos}
-  end
-
-  def trigger_failure(:raise, _func, opts) do
-    raise ChaosError,
-      message: opts[:message] || "Mutiny!",
-      function: opts[:function],
-      module: opts[:module]
-  end
-
-  def trigger_failure(:delay, func, opts) do
-    delay = Keyword.get(opts, :delay, :rand.uniform(4000) + 1000)
-    Process.sleep(delay)
-    func.()
-  end
-
-  def trigger_failure(:timeout, _func, opts) do
-    delay = Keyword.get(opts, :delay, :rand.uniform(4000) + 1000)
-    Process.sleep(delay)
-    {:error, :mutineer_chaos}
-  end
-
-  def trigger_failure(nil, _func, _opts), do: nil
-
-  def trigger_failure(:exit, _func, _opts), do: exit(:mutineer_chaos)
 
   defp config do
     Application.get_env(:mutineer, __MODULE__, [])
@@ -160,10 +144,19 @@ defmodule Mutineer do
   def maybe_chaos(func, opts) when is_function(func, 0) do
     if enabled?() do
       failure_rate = Keyword.get(opts, :failure_rate, default_failure_rate())
-      failure_type = Keyword.get(opts, :failure_type, default_failure_type())
+
+      failure_type =
+        (opts[:failure_types] || Keyword.get(opts, :failure_type, default_failure_types()))
+        |> then(fn
+          types when is_list(types) ->
+            Enum.random(types)
+
+          type when is_atom(type) ->
+            type
+        end)
 
       if should_fail?(failure_rate) do
-        trigger_failure(failure_type, func, opts)
+        Failures.trigger_failure(failure_type, func, opts)
       else
         func.()
       end
@@ -186,11 +179,12 @@ defmodule Mutineer do
 
   ## Options
 
-  - `:failure_rate` - Probability of failure (0.0 to 1.0), defaults to global setting
-  - `:failure_type` - Type of failure (`:error`, `:raise`, `:timeout`, `:nil`, `:exit`)
-  - `:message` - Custom error message for `:raise` type
-  - `:delay` - Custom delay in ms for `:timeout` type
-  - `:custom_error` - Custom error object for `:custom` type
+  - `failure_rate` is the probability of failure for a given function (`0.0` - `1.0`), where `1.0` or above will always fail and `0.0` or below will never fail.
+  - `failure_types` (or `failure_type`) is either a list of failure types to trigger (e.g. `[:error, :delay]`) or a single failure type (e.g. `:error`)
+  - `errors` (or `error`) is either a list of objects to be randomly selected from or a single object to return when the `:error` type is triggered
+  - `raised_errors` (or `raised_error`) is a list of errors to be randomly selected from or a single error to be raised when the `:raise` type is triggered
+  - `exit_errors` (or `exit_error`) is a list of errors to be randomly selected from or a single error to be raised when the `:exit` type is triggered
+  - `delay` is the upperbound of the delay in milliseconds or a range of milliseconds for `:timeout` and `:delay` types
 
   ## Examples
 
