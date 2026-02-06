@@ -4,7 +4,7 @@ defmodule Mutineer.MixProject do
   def project do
     [
       app: :mutineer,
-      version: "0.1.0",
+      version: "0.1.1",
       elixir: "~> 1.14",
       description: "A chaos engineering library for Elixir that makes functions return errors based on configurable failure rates.",
       start_permanent: Mix.env() == :prod,
