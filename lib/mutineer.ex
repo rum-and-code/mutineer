@@ -1,75 +1,75 @@
 defmodule Mutineer do
   @moduledoc """
-    Mutineer macro system for introducing controlled failures into functions.
+  Mutineer macro system for introducing controlled failures into functions.
 
-    This module provides macros to wrap functions and make them fail randomly,
-    inspired by Netflix's Chaos Monkey. Useful for testing resilience and
-    error handling in development and staging environments.
+  This module provides macros to wrap functions and make them fail randomly,
+  inspired by Netflix's Chaos Monkey. Useful for testing resilience and
+  error handling in development and staging environments.
 
-    ## Configuration
+  ## Configuration
 
-    Configure in `config/config.exs` or environment-specific config files:
+  Configure in `config/config.exs` or environment-specific config files:
 
-        # Enable Mutineer globally
-        config :mutineer,
-          Mutineer,
-          enabled: true,
-          default_failure_rate: 0.1,  # 10% failure rate
-          default_failure_type: :error
+      # Enable Mutineer globally
+      config :mutineer,
+        Mutineer,
+        enabled: true,
+        default_failure_rate: 0.1,  # 10% failure rate
+        default_failure_type: :error
 
-    ## Usage
+  ## Usage
 
-    Use the `@chaos` attribute before function definitions:
+  Use the `@chaos` attribute before function definitions:
 
-        defmodule MyModule do
-          use Mutineer
+      defmodule MyModule do
+        use Mutineer
 
-          # Will fail 10% of the time with default settings
-          @chaos true
-          def my_function(arg) do
-            # normal implementation
-          end
-
-          # Custom failure rate (30%)
-          @chaos failure_rate: 0.3
-          def risky_function(arg) do
-            # normal implementation
-          end
-
-          # Custom failure type and message
-          @chaos failure_rate: 0.2, failure_type: :raise, message: "Chaos!"
-          def another_function(arg) do
-            # normal implementation
-          end
+        # Will fail 10% of the time with default settings
+        @chaos true
+        def my_function(arg) do
+          # normal implementation
         end
 
-    Or use the `defchaos` macro directly:
-
-        defmodule MyModule do
-          use Mutineer
-
-          defchaos my_function(arg), failure_rate: 0.2 do
-            # normal implementation
-          end
+        # Custom failure rate (30%)
+        @chaos failure_rate: 0.3
+        def risky_function(arg) do
+          # normal implementation
         end
 
-    ## Failure Types
+        # Custom failure type and message
+        @chaos failure_rate: 0.2, failure_type: :raise, message: "Chaos!"
+        def another_function(arg) do
+          # normal implementation
+        end
+      end
 
-    - `:error` - Returns `{:error, :mutineer_chaos}` (default)
-    - `:custom` - Returns a custom error object specified in the `custom_error` option (defaults to `{:error, :mutineer_chaos}`)
-    - `:raise` - Raises a `Mutineer.ChaosError` exception
-    - `:delay` - Introduces a random delay (1-5 seconds) before executing function
-    - `:timeout` - Introduces a random delay (1-5 seconds) before failing
-    - `:nil` - Returns `nil`
-    - `:exit` - Calls `exit(:mutineer_chaos)`
+  Or use the `defchaos` macro directly:
 
-    ## Important Notes
+      defmodule MyModule do
+        use Mutineer
 
-    - Mutineer is **disabled by default**
-    - When disabled at runtime, functions execute normally with minimal overhead
-    - Recommended to only enable in development/staging environments
-    - Never enable in production unless you know what you're doing
-    """
+        defchaos my_function(arg), failure_rate: 0.2 do
+          # normal implementation
+        end
+      end
+
+  ## Failure Types
+
+  - `:error` - Returns `{:error, :mutineer_chaos}` (default)
+  - `:custom` - Returns a custom error object specified in the `custom_error` option (defaults to `{:error, :mutineer_chaos}`)
+  - `:raise` - Raises a `Mutineer.ChaosError` exception
+  - `:delay` - Introduces a random delay (1-5 seconds) before executing function
+  - `:timeout` - Introduces a random delay (1-5 seconds) before failing
+  - `:nil` - Returns `nil`
+  - `:exit` - Calls `exit(:mutineer_chaos)`
+
+  ## Important Notes
+
+  - Mutineer is **disabled by default**
+  - When disabled at runtime, functions execute normally with minimal overhead
+  - Recommended to only enable in development/staging environments
+  - Never enable in production unless you know what you're doing
+  """
 
   defmodule ChaosError do
     @moduledoc """
@@ -143,7 +143,7 @@ defmodule Mutineer do
     {:error, :mutineer_chaos}
   end
 
-  def trigger_failure(:nil, _func, _opts), do: nil
+  def trigger_failure(nil, _func, _opts), do: nil
 
   def trigger_failure(:exit, _func, _opts), do: exit(:mutineer_chaos)
 
@@ -208,7 +208,8 @@ defmodule Mutineer do
   end
 
   defmacro defchaos(call, opts, expr) do
-    define_chaos_function(:def, call, expr, opts)
+    {body, _} = Keyword.pop(expr, :do)
+    define_chaos_function(:def, call, body, opts)
   end
 
   @doc """
@@ -222,13 +223,14 @@ defmodule Mutineer do
   end
 
   defmacro defchaosp(call, opts, expr) do
-    define_chaos_function(:defp, call, expr, opts)
+    {body, _} = Keyword.pop(expr, :do)
+    define_chaos_function(:defp, call, body, opts)
   end
 
   defp resolve_expr_or_opts(expr_or_opts) do
     cond do
       expr_or_opts == nil ->
-        {[], nil}
+        {nil, []}
 
       # expr_or_opts is expr
       Keyword.has_key?(expr_or_opts, :do) ->
@@ -236,7 +238,7 @@ defmodule Mutineer do
 
       # expr_or_opts is opts
       true ->
-        {expr_or_opts, nil}
+        {nil, expr_or_opts}
     end
   end
 

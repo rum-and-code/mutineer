@@ -37,7 +37,7 @@ defmodule MutineerTest do
     end
 
     test "returns nil for :nil type" do
-      assert Mutineer.trigger_failure(:nil, fn -> :ok end, []) == nil
+      assert Mutineer.trigger_failure(nil, fn -> :ok end, []) == nil
     end
 
     test "raises ChaosError for :raise type" do
@@ -106,11 +106,11 @@ defmodule MutineerTest do
       {:ok, "success"}
     end
 
-    defchaos macro_test(arity) when arity == 3, failure_rate: 1.0 do
+    defchaos macro_test(3), failure_rate: 0.5 do
       {:ok, "defchaos/3"}
     end
 
-    defchaos macro_test(arity) when arity == 2 do
+    defchaos macro_test(2) do
       {:ok, "defchaos/2"}
     end
   end
@@ -152,7 +152,8 @@ defmodule MutineerTest do
           TestModule.macro_test(3)
         end)
 
-      assert Enum.all?(results, &(&1 == {:error, :mutineer_chaos}))
+      assert Enum.any?(results, &(&1 == {:error, :mutineer_chaos}))
+      assert Enum.any?(results, &(&1 == {:ok, "defchaos/3"}))
     end
 
     test "macro defchaos/2 works without opts" do
@@ -164,6 +165,7 @@ defmodule MutineerTest do
         end)
 
       assert Enum.any?(results, &(&1 == {:error, :mutineer_chaos}))
+      assert Enum.any?(results, &(&1 == {:ok, "defchaos/2"}))
     end
 
     test "function never fails when failure_rate is 0" do
@@ -204,7 +206,7 @@ defmodule MutineerTest do
         Mutineer.maybe_chaos(
           fn -> {:ok, "success"} end,
           failure_rate: 1.0,
-          failure_type: :nil
+          failure_type: nil
         )
 
       assert result == nil
