@@ -19,7 +19,7 @@ Add `mutineer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:mutineer, "~> 0.1.0"}
+    {:mutineer, "~> 0.2.0"}
   ]
 end
 ```
